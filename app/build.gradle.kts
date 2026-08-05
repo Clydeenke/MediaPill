@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.agp.app)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.agpApp)
+    alias(libs.plugins.composeCompiler)
 }
 
 android {
