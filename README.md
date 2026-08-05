@@ -1,19 +1,19 @@
 # MediaPill
 
-把鎖屏原生大媒體卡片替換為底部藥丸控件（類似 One UI / Nothing OS / ColorOS）
+把锁屏原生大媒体卡片替换为底部药丸控件（类似 One UI / Nothing OS / ColorOS）
 
 > **LSPosed 模块** / Android 14–16 / AOSP-based ROM（LineageOS, crDroid 等）
-> **僅支持 LSPosed（Zygisk 模式）· 不支持 EDXposed / 舊版 Xposed**
+> **仅支持 LSPosed（Zygisk 模式）· 不支持 EDXposed / 旧版 Xposed**
 
 ---
 
 ## Features
 
-- 底部藥丸：封面 + 滾動歌名 + 播放/暫停（~48dp 高）
-- 點擊展開完整控件（封面 + 進度條 + 上下首 + 播放）
-- 充電時自動上移避開系統充電信息
-- 鎖屏指紋驗證時臨時消失（避免遮擋指紋圖案）
-- 僅接管鎖屏區域（不影響通知欄 / QuickSettings）
+- 底部药丸：封面 + 滚动歌名 + 播放/暂停（~48dp 高）
+- 点击展开完整控件（封面 + 进度条 + 上下曲 + 播放）
+- 充电时自动上移避开系统充电信息
+- 锁屏指纹验证时临时消失（避免遮挡指纹图案）
+- 仅接管锁屏区域（不影响通知栏 / QuickSettings）
 
 ---
 
@@ -27,58 +27,50 @@
 
 ## Install
 
-1. 到 [Releases](https://github.com/Clydeenke/MediaPill/releases) 下載最新 `.apk`
-2. 安裝 APK
-3. LSPosed Manager → 模組 → 啟用 MediaPill → 作用域勾選 **SystemUI (com.android.systemui)**
-4. 重啟
+1. 到 [Releases](https://github.com/Clydeenke/MediaPill/releases) 下载最新 `.apk`
+2. 安装 APK
+3. LSPosed Manager → 模块 → 启用 MediaPill → 作用域勾选 **SystemUI (com.android.systemui)**
+4. 重启
 
 ## Config
 
-安裝後打開 MediaPill 配置 App，可調整：
+安装后打开 MediaPill 配置 App，可调整：
 
-- 藥丸縱向位置（78%–90%）
-- 展開態背景模糊 / 透明度
-- 默認播放器appId 白名單
+- 药丸纵向位置（78%–90%）
+- 展开态背景模糊 / 透明度
+- 默认播放器 appId 白名单
 
 ---
 
-## 開發
+## 开发
 
-項目基於 libxposed（API 102）+ Kotlin 2.4 + AGP 9。
+项目基于 libxposed（API 102）+ Kotlin 2.4 + AGP 9。
 
 ```shell
-./gradlew assembleDebug   # 編譯為 Debug APK
+./gradlew assembleDebug   # 编译为 Debug APK
 ```
 
-**項目結構：**
+**项目结构：**
 
 ```
 app/
-├── build.gradle.kts          # 模塊構建配置
+├── build.gradle.kts          # 模块构建配置
 └── src/main/
-    ├── AndroidManifest.xml   # LSPosed 入口聲明
+    ├── AndroidManifest.xml   # LSPosed 入口声明
     ├── java/com/clydeenke/mediapill/
-    │   ├── MainActivity.kt       # 配置 Activity（默認占位）
+    │   ├── MainActivity.kt       # 配置 Activity（默认占位）
     │   └── xposed/
-    │       └── PillHookEntry.kt  # SystemUI hook 入口（第一階段）
-    └── res/                      # 圖標 + 主題資源
+    │       └── PillHookEntry.kt  # SystemUI hook 入口（第一阶段）
+    └── res/                      # 图标 + 主题资源
 docs/
-└── MEDIAPILL_FEASIBILITY.md    # 技術可行性評估（中文版）
+└── MEDIAPILL_FEASIBILITY.md    # 技术可行性评估（中文版）
 ```
 
 ---
 
-## 免責 / 兼容性
+## 免责 / 兼容性
 
-本項目**僅承諾支持 AOSP 系 ROM**。MIUI、One UI、HarmonyOS 等深度定制系統因 SystemUI 內部結構差異，**不保證兼容**；請在 issue 前確認 ROM 類型。
-
----
-
-## 致謝 / 依賴
-
-- [libxposed](https://github.com/libposed/LibXposed) (API 102) — LSPosed 框架
-- [miuix-kmp](https://github.com/miuix-kotlin-multiplatform/miuix) — 配置 UI 組件
-- [AODTweaker](https://github.com/Clydeenke/AODTweaker) — 同一作者的 SystemUI hook 實踐參考
+本项目**仅承诺支持 AOSP 系 ROM**。MIUI、One UI、HarmonyOS 等深度定制系统因 SystemUI 内部结构差异，**不保证兼容**；请在 issue 前确认 ROM 类型。
 
 ---
 
