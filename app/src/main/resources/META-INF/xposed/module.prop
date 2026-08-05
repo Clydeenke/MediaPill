@@ -1,0 +1,9 @@
+id=com.clydeenke.mediapill
+name=MediaPill
+version=0.1.0
+versionCode=1
+author=clydeenke
+description=把锁屏原生大媒体卡片替换为底部药丸控件
+minApiVersion=102
+targetApiVersion=102
+staticScope=true

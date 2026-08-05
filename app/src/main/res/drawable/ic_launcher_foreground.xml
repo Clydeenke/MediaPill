@@ -3,16 +3,19 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#2196F3"
-        android:pathData="M0,0h108v108H0z" />
+
+    <!-- 药丸形状 (白色) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M38,35h32a4,4 0 0 1,4 4v30a4,4 0 0 1,-4 4H38a4,4 0 0 1,-4 -4V39A4,4 0 0 1,38 33z" />
+        android:pathData="M38,40 L70,40 A14,14 0 0 1,84 54 A14,14 0 0 1,70 68 L38,68 A14,14 0 0 1,24 54 A14,14 0 0 1,38 40 Z" />
+
+    <!-- M 字母 (药丸底色镂空) -->
     <path
-        android:fillColor="#2196F3"
-        android:pathData="M48,46m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
-    <path
-        android:fillColor="#2196F3"
-        android:pathData="M44,56l8,-6l8,6z" />
+        android:strokeColor="#1A1A2E"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M42,60 L42,48 L54,56 L66,48 L66,60" />
+
 </vector>
