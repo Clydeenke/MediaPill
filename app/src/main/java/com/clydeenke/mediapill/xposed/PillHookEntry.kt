@@ -1,22 +1,26 @@
 package com.clydeenke.mediapill.xposed
 
+import android.content.Context
 import android.util.Log
+import android.view.View
+import android.view.ViewGroup
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.Hooker
-import java.lang.reflect.Constructor
-import java.lang.reflect.Field
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * MediaPill Xposed 入口（libxposed API 102）。
  *
- * 阶段 1：探测 SystemUI 媒体控件真实结构 + 隐藏原生控件。
- * 所有日志走 android.util.Log（tag=MediaPill），便于 adb 直接排查。
+ * Stage 1：隐藏原生锁屏媒体控件。
+ *
+ * Hook 策略（双保险）：
+ * 1. KeyguardMediaController.setVisibility() → 执行后强制 container GONE + visible=false
+ * 2. MediaHost.updateViewVisibility()         → 锁屏 host 执行后强制 hostView GONE
+ *
+ * 当 master_switch 关闭时，所有 hook 透传，零干预。
  */
 class PillHookEntry : XposedModule() {
 
@@ -25,300 +29,168 @@ class PillHookEntry : XposedModule() {
         private const val PKG_SYSTEMUI = "com.android.systemui"
         private val registered = AtomicBoolean(false)
 
-        // ── 探测目标类（LOS 23 dex 扫描确认的包路径） ──
-        private val PROBE_TARGETS = arrayOf(
-            ProbeTarget(
-                name = "KeyguardMediaController",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.ui.controller.KeyguardMediaController",
-                    "com.android.systemui.statusbar.notification.KeyguardMediaController",
-                    "com.android.systemui.media.KeyguardMediaController"
-                )
-            ),
-            ProbeTarget(
-                name = "MediaHost",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.ui.view.MediaHost",
-                    "com.android.systemui.media.MediaHost"
-                )
-            ),
-            ProbeTarget(
-                name = "MediaDataManager",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.domain.pipeline.MediaDataManager",
-                    "com.android.systemui.media.MediaDataManager"
-                )
-            ),
-            ProbeTarget(
-                name = "MediaDataFilter",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.domain.pipeline.MediaDataFilterImpl",
-                    "com.android.systemui.media.MediaDataFilter"
-                )
-            ),
-            ProbeTarget(
-                name = "MediaHierarchyManager",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.ui.controller.MediaHierarchyManager",
-                    "com.android.systemui.media.MediaHierarchyManager"
-                )
-            ),
-            ProbeTarget(
-                name = "MediaControlPanel",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.ui.controller.MediaControlPanel",
-                    "com.android.systemui.media.MediaControlPanel"
-                )
-            ),
-            ProbeTarget(
-                name = "MediaCarouselController",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.ui.controller.MediaCarouselController",
-                    "com.android.systemui.media.MediaCarouselController"
-                )
-            ),
-            ProbeTarget(
-                name = "SeekBarViewModel",
-                candidates = arrayOf(
-                    "com.android.systemui.media.controls.ui.viewmodel.SeekBarViewModel",
-                    "com.android.systemui.media.SeekBarViewModel"
-                )
-            )
-        )
+        // LOS 23 探测确认的类路径
+        private const val CLS_KEYGUARD_MEDIA_CTRL =
+            "com.android.systemui.media.controls.ui.controller.KeyguardMediaController"
+        private const val CLS_MEDIA_HOST =
+            "com.android.systemui.media.controls.ui.view.MediaHost"
 
-        // ── SystemUI 启动入口候选（hook 探测触发点） ──
-        private val SYSTEMUI_ENTRY_CANDIDATES = arrayOf(
-            EntryCandidate(
-                className = "com.android.systemui.statusbar.StatusBar",
-                methodName = "start"
-            ),
-            EntryCandidate(
-                className = "com.android.systemui.SystemUIApplication",
-                methodName = "onCreate"
-            )
-        )
+        // MediaHost.location: 0 = 锁屏 (AOSP HOST_LOCATION_LOCKSCREEN)
+        private const val HOST_LOCATION_LOCKSCREEN = 0
+
+        @Volatile
+        private var systemUiContext: Context? = null
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         Log.i(TAG, "onModuleLoaded: process=${param.processName} " +
-                "isSystemServer=${param.isSystemServer} " +
                 "framework=$frameworkName($frameworkVersionCode) API $apiVersion")
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
         Log.i(TAG, "onPackageReady: pkg=${param.packageName} first=${param.isFirstPackage}")
         if (param.packageName != PKG_SYSTEMUI) return
-        if (!registered.compareAndSet(false, true)) {
-            Log.i(TAG, "already registered, skip")
-            return
-        }
-        Log.i(TAG, "===== MediaPill hook triggered =====")
-        hookSystemuiStart(param)
+        if (!registered.compareAndSet(false, true)) return
+        Log.i(TAG, "===== MediaPill Stage 1: registering hooks =====")
+        registerStage1Hooks(param.classLoader)
     }
 
     // ──────────────────────────────────────────────────
-    //  SystemUI 启动入口 hook（带降级）
+    //  Stage 1: 隐藏原生锁屏媒体控件
     // ──────────────────────────────────────────────────
 
-    private fun hookSystemuiStart(param: PackageReadyParam) {
-        val cl = param.classLoader
+    private fun registerStage1Hooks(cl: ClassLoader) {
+        try {
+            hookKeyguardMediaController(cl)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to hook KeyguardMediaController", e)
+        }
+        try {
+            hookMediaHostVisibility(cl)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to hook MediaHost", e)
+        }
+    }
 
-        for (candidate in SYSTEMUI_ENTRY_CANDIDATES) {
-            try {
-                val clazz = Class.forName(candidate.className, false, cl)
-                val method = clazz.getDeclaredMethod(candidate.methodName)
-                hook(method).intercept(object : Hooker {
-                    override fun intercept(chain: Chain): Any? {
-                        Log.i(TAG, "===== phase 1 probe start (via ${candidate.className}.${candidate.methodName}) =====")
-                        runFullProbe(cl)
-                        Log.i(TAG, "===== phase 1 probe end =====")
-                        return chain.proceed()
+    /**
+     * Hook KeyguardMediaController:
+     * - 构造函数: 捕获 Context（用于读取配置）
+     * - setVisibility(int, ViewGroup): 主开关开启时，执行后强制 GONE
+     * - onMediaHostVisibilityChanged(boolean): 日志监控
+     */
+    private fun hookKeyguardMediaController(cl: ClassLoader) {
+        val clazz = Class.forName(CLS_KEYGUARD_MEDIA_CTRL, false, cl)
+
+        // 1. 构造函数 → 捕获 Context
+        val constructor = clazz.declaredConstructors[0]
+        hook(constructor).intercept(object : Hooker {
+            override fun intercept(chain: Chain): Any? {
+                chain.proceed()
+                if (systemUiContext == null) {
+                    try {
+                        val ctx = clazz.getDeclaredField("context")
+                            .apply { isAccessible = true }
+                            .get(chain.thisObject) as? Context
+                        if (ctx != null) {
+                            systemUiContext = ctx
+                            Log.i(TAG, "Context captured from KeyguardMediaController")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to capture context", e)
                     }
-                })
-                Log.i(TAG, "hooked ${candidate.className}.${candidate.methodName}()")
-                return
-            } catch (e: ClassNotFoundException) {
-                Log.i(TAG, "entry candidate not found: ${candidate.className}")
-            } catch (e: NoSuchMethodException) {
-                Log.i(TAG, "entry method not found: ${candidate.className}.${candidate.methodName}()")
+                }
+                return null
             }
-        }
+        })
 
-        // 所有候选都失败 → 立即探测（不依赖启动 hook）
-        Log.w(TAG, "! all entry candidates failed, probing immediately")
-        runFullProbe(cl)
-    }
-
-    // ──────────────────────────────────────────────────
-    //  完整探测
-    // ──────────────────────────────────────────────────
-
-    private fun runFullProbe(cl: ClassLoader) {
-        // 1. 探测所有目标类
-        for (target in PROBE_TARGETS) {
-            probeClass(target, cl)
-        }
-
-        // 2. 探测 SystemUI 是否包含 Compose
-        probeComposeAvailability(cl)
-
-        // 3. 探测 MediaHost 的所有实例特征字段
-        probeMediaHostFields(cl)
-    }
-
-    private fun probeClass(target: ProbeTarget, cl: ClassLoader) {
-        Log.i(TAG, "--- ${target.name} ---")
-        for (candidate in target.candidates) {
-            try {
-                val clazz = Class.forName(candidate, false, cl)
-                Log.i(TAG, "FOUND: $candidate")
-                dumpConstructors(clazz)
-                dumpFields(clazz)
-                dumpMethods(clazz)
-                return
-            } catch (_: ClassNotFoundException) {
-                Log.i(TAG, "not this ROM: $candidate")
-            }
-        }
-        Log.i(TAG, "! ${target.name} not found on any candidate path")
-    }
-
-    // ──────────────────────────────────────────────────
-    //  探测 Compose 可用性
-    // ──────────────────────────────────────────────────
-
-    private fun probeComposeAvailability(cl: ClassLoader) {
-        Log.i(TAG, "--- Compose availability ---")
-        val composeClasses = arrayOf(
-            "androidx.compose.runtime.Composable",
-            "androidx.compose.ui.Modifier",
-            "androidx.compose.material3.MaterialTheme",
-            "androidx.compose.foundation.layout.Column"
+        // 2. setVisibility(int, ViewGroup) → 主开关开启时强制隐藏
+        val setVisMethod = clazz.getDeclaredMethod(
+            "setVisibility",
+            Int::class.javaPrimitiveType,
+            ViewGroup::class.java
         )
-        for (cls in composeClasses) {
-            try {
-                Class.forName(cls, false, cl)
-                Log.i(TAG, "✓ $cls available")
-            } catch (_: ClassNotFoundException) {
-                Log.i(TAG, "✗ $cls NOT available")
+        hook(setVisMethod).intercept(object : Hooker {
+            override fun intercept(chain: Chain): Any? {
+                chain.proceed() // 先让原始逻辑执行
+                if (!isMasterEnabled()) return null
+
+                try {
+                    val thisObj = chain.thisObject
+                    val container = chain.args[1] as? ViewGroup
+
+                    // 强制隐藏容器
+                    container?.visibility = View.GONE
+                    // 同步 visible 字段，防止下游逻辑误认为媒体可见
+                    clazz.getDeclaredField("visible")
+                        .apply { isAccessible = true }
+                        .setBoolean(thisObj, false)
+
+                    Log.d(TAG, "setVisibility → forced GONE (master on)")
+                } catch (e: Exception) {
+                    Log.e(TAG, "setVisibility post-process failed", e)
+                }
+                return null
             }
-        }
+        })
+
+        // 3. onMediaHostVisibilityChanged(boolean) → 日志
+        val onVisChanged = clazz.getDeclaredMethod(
+            "onMediaHostVisibilityChanged",
+            Boolean::class.javaPrimitiveType
+        )
+        hook(onVisChanged).intercept(object : Hooker {
+            override fun intercept(chain: Chain): Any? {
+                val visible = chain.args[0] as Boolean
+                Log.d(TAG, "onMediaHostVisibilityChanged: visible=$visible")
+                return chain.proceed()
+            }
+        })
+
+        Log.i(TAG, "KeyguardMediaController hooks registered ✓")
     }
 
-    // ──────────────────────────────────────────────────
-    //  探测 MediaHost 字段（区分锁屏 host 的关键）
-    // ──────────────────────────────────────────────────
+    /**
+     * Hook MediaHost.updateViewVisibility():
+     * 锁屏 host (location == 0) 在主开关开启时强制 hostView GONE
+     */
+    private fun hookMediaHostVisibility(cl: ClassLoader) {
+        val clazz = Class.forName(CLS_MEDIA_HOST, false, cl)
+        val method = clazz.getDeclaredMethod("updateViewVisibility")
 
-    private fun probeMediaHostFields(cl: ClassLoader) {
-        Log.i(TAG, "--- MediaHost field analysis ---")
-        for (candidate in PROBE_TARGETS[1].candidates) {
-            try {
-                val clazz = Class.forName(candidate, false, cl)
-                Log.i(TAG, "MediaHost fields (for instance identification):")
-                for (field in clazz.declaredFields) {
-                    Log.i(TAG, "  ${formatField(field)}")
-                }
-                // 也检查内部类
-                for (inner in clazz.declaredClasses) {
-                    Log.i(TAG, "  inner class: ${inner.simpleName}")
-                    for (field in inner.declaredFields) {
-                        Log.i(TAG, "    ${formatField(field)}")
+        hook(method).intercept(object : Hooker {
+            override fun intercept(chain: Chain): Any? {
+                chain.proceed() // 先让原始逻辑执行
+                if (!isMasterEnabled()) return null
+
+                try {
+                    val host = chain.thisObject
+                    val location = clazz.getDeclaredField("location")
+                        .apply { isAccessible = true }
+                        .getInt(host)
+
+                    if (location == HOST_LOCATION_LOCKSCREEN) {
+                        val hostView = clazz.getDeclaredField("hostView")
+                            .apply { isAccessible = true }
+                            .get(host) as? View
+                        hostView?.visibility = View.GONE
+                        Log.d(TAG, "MediaHost.updateViewVisibility → GONE (lockscreen, master on)")
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "MediaHost post-process failed", e)
                 }
-                return
-            } catch (_: ClassNotFoundException) {
-                continue
+                return null
             }
-        }
+        })
+
+        Log.i(TAG, "MediaHost visibility hook registered ✓")
     }
 
     // ──────────────────────────────────────────────────
-    //  反射 dump 工具
+    //  Config
     // ──────────────────────────────────────────────────
 
-    private fun dumpConstructors(clazz: Class<*>) {
-        val ctors: Array<Constructor<*>> = clazz.declaredConstructors
-        Log.i(TAG, "Constructors: ${ctors.size}")
-        for (ctor in ctors) {
-            val modStr = Modifier.toString(ctor.modifiers)
-            val params = ctor.parameterTypes.joinToString(", ") { it.simpleName }
-            Log.i(TAG, "  ▶ $modStr ${clazz.simpleName}($params)")
-        }
+    private fun isMasterEnabled(): Boolean {
+        val ctx = systemUiContext ?: return false
+        return HookPrefReader.isMasterEnabled(ctx)
     }
-
-    private fun dumpFields(clazz: Class<*>) {
-        val fields: Array<Field> = clazz.declaredFields
-        Log.i(TAG, "Fields: ${fields.size}")
-        for (field in fields) {
-            Log.i(TAG, "  # ${formatField(field)}")
-        }
-    }
-
-    private fun dumpMethods(clazz: Class<*>) {
-        val allMethods: Array<Method> = clazz.declaredMethods
-        Log.i(TAG, "Declared methods: ${allMethods.size}")
-        for (method in allMethods) {
-            val sig = formatMethod(method)
-            val isInteresting = INTERESTING_KEYWORDS.any {
-                method.name.contains(it, ignoreCase = true)
-            }
-            if (isInteresting) {
-                Log.i(TAG, "  ★ $sig")
-            }
-        }
-        // 也 dump 父类方法（可能有关键方法在父类）
-        val superClass = clazz.superclass
-        if (superClass != null && superClass != Any::class.java) {
-            Log.i(TAG, "Super class: ${superClass.name}")
-            val superMethods = superClass.declaredMethods
-            for (method in superMethods) {
-                val isInteresting = INTERESTING_KEYWORDS.any {
-                    method.name.contains(it, ignoreCase = true)
-                }
-                if (isInteresting) {
-                    Log.i(TAG, "  ★ [super] ${formatMethod(method)}")
-                }
-            }
-        }
-    }
-
-    // ──────────────────────────────────────────────────
-    //  格式化工具
-    // ──────────────────────────────────────────────────
-
-    private fun formatMethod(method: Method): String {
-        val modStr = Modifier.toString(method.modifiers)
-        val params = method.parameterTypes.joinToString(", ") { it.simpleName }
-        val returnType = method.returnType.simpleName
-        return "$modStr $returnType ${method.name}($params)"
-    }
-
-    private fun formatField(field: Field): String {
-        val modStr = Modifier.toString(field.modifiers)
-        val type = field.type.simpleName
-        return "$modStr $type ${field.name}"
-    }
-
-    private val INTERESTING_KEYWORDS = arrayOf(
-        "Visible", "hidden", "Visibility", "expansion",
-        "attach", "detach", "show", "hide", "toggle",
-        "state", "refresh", "host", "media", "keyguard",
-        "controller", "callback", "listener", "update",
-        "position", "progress", "seek", "play", "pause",
-        "action", "artifact", "song", "artist", "app"
-    )
-
-    // ──────────────────────────────────────────────────
-    //  数据类
-    // ──────────────────────────────────────────────────
-
-    private data class ProbeTarget(
-        val name: String,
-        val candidates: Array<String>
-    )
-
-    private data class EntryCandidate(
-        val className: String,
-        val methodName: String
-    )
 }
