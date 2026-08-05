@@ -52,10 +52,11 @@ android {
 
 dependencies {
     compileOnly(libs.libxposed.api)
-    implementation(libs.libxposed.service)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.preference)
     implementation(libs.miuix.icons)
+
+    // RemotePreferences 通过自定义 ContentProvider 实现，不需要 libxposed-service
 }

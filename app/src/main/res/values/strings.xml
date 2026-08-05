@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">MediaPill</string>
     <string name="xposed_description">把锁屏原生大媒体卡片替换为底部药丸控件</string>
-    <string name="not_ready">未连接到 LSPosed 服务，请在 LSPosed Manager 中启用本模块</string>
     <string name="master_switch_title">启用模块</string>
     <string name="master_switch_summary">接管锁屏媒体控件显示</string>
     <string name="cat_general">通用</string>

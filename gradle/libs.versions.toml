@@ -2,7 +2,6 @@
 agp = "9.3.0"
 kotlin = "2.4.10"
 xposedApi = "102.0.0"
-xposedService = "102.0.0"
 androidxAppcompat = "1.7.0"
 androidxActivityCompose = "1.13.0"
 miuix = "0.9.3"
@@ -13,7 +12,6 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 
 [libraries]
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "xposedApi" }
-libxposed-service = { group = "io.github.libxposed", name = "service", version.ref = "xposedService" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidxAppcompat" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidxActivityCompose" }
 miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui", version.ref = "miuix" }

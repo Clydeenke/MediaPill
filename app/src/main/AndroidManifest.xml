@@ -33,6 +33,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 跨进程 SharedPreferences 桥：hook 端通过 ContentResolver 读取配置 -->
+        <provider
+            android:name=".config.RemotePrefProvider"
+            android:authorities="com.clydeenke.mediapill.prefs"
+            android:exported="true"
+            android:directBootAware="true" />
+
     </application>
 
 </manifest>
