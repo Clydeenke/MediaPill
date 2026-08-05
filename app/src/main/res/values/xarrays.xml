@@ -1,0 +1,3 @@
+<integer-array name="xposed_scope">
+    <item>com.android.systemui</item>
+</integer-array>

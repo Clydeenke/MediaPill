@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MediaPill</string>
+    <string name="xposed_description">把锁屏原生大媒体卡片替换为底部药丸控件</string>
+</resources>
