@@ -1,8 +1,8 @@
 import java.net.URI
 
 plugins {
-    alias(libs.plugins.agp.app) apply false
-    alias(libs.plugins.compose.compiler) apply false
+    alias(libs.plugins.agpApp) apply false
+    alias(libs.plugins.composeCompiler) apply false
 }
 
 tasks.register<Delete>("clean") {
