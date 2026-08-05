@@ -1,14 +1,12 @@
-name: CI
+name: Release
 
 on:
-  pull_request:
-    branches: [main]
   release:
     types: [published]
 
 jobs:
-  build-debug:
-    name: Build Debug APK
+  build-release:
+    name: Build Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -27,12 +25,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-      - name: Upload Debug APK artifact
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaPill-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+          name: MediaPill-release
+          path: app/build/outputs/apk/release/app-release.apk
+          retention-days: 30

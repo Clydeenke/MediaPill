@@ -2,7 +2,7 @@
 
 把锁屏原生大媒体卡片替换为底部药丸控件（类似 One UI / Nothing OS / ColorOS）
 
-> **LSPosed 模块** / Android 14–16 / AOSP-based ROM（LineageOS, crDroid 等）
+> **LSPosed 模块** / Android 14–17 / AOSP-based ROM（LineageOS, crDroid 等）
 > **仅支持 LSPosed（Zygisk 模式）· 不支持 EDXposed / 旧版 Xposed**
 
 ---
@@ -21,7 +21,7 @@
 
 | 要求 | 版本 |
 |---|---|
-| Android | 14–16 (AOSP-based) |
+| Android | 14–17 (AOSP-based) |
 | LSPosed | Zygisk 模式下最新版 |
 | Root | KernelSU / APatch / Magisk ≥ 28 |
 
@@ -44,7 +44,7 @@
 
 ## 开发
 
-项目基于 libxposed（API 102）+ Kotlin 2.4 + AGP 9。
+项目基于 libxposed（API 102）+ Kotlin 2.4.10 + AGP 9.3.0 + miuix-kmp。
 
 ```shell
 ./gradlew assembleDebug   # 编译为 Debug APK
@@ -56,14 +56,18 @@
 app/
 ├── build.gradle.kts          # 模块构建配置
 └── src/main/
-    ├── AndroidManifest.xml   # LSPosed 入口声明
+    ├── AndroidManifest.xml   # 应用声明
     ├── java/com/clydeenke/mediapill/
-    │   ├── MainActivity.kt       # 配置 Activity（默认占位）
+    │   ├── App.kt                # Application（XposedService 绑定）
+    │   ├── MainActivity.kt       # 配置 Activity（miuix-kmp Compose UI）
+    │   ├── config/
+    │   │   ├── Config.kt         # 配置键定义（app/hook 共享）
+    │   │   └── ConfigService.kt  # RemotePreferences 跨进程通信
     │   └── xposed/
-    │       └── PillHookEntry.kt  # SystemUI hook 入口（第一阶段）
+    │       └── PillHookEntry.kt  # SystemUI hook 入口（阶段 1 探测）
     └── res/                      # 图标 + 主题资源
 docs/
-└── MEDIAPILL_FEASIBILITY.md    # 技术可行性评估（中文版）
+└── MEDIAPILL_FEASIBILITY.md    # 技术可行性评估
 ```
 
 ---

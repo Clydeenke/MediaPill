@@ -1,11 +1,11 @@
 # Changelog
 
-## [0.1.0] - 2026-08-XX
+## [0.1.0] - 2026-08-05
 
 ### Added
-- 项目骨架初始化：libxposed API 102 + Kotlin 2.4 + AGP 9
-- `PillHookEntry` SystemUI 注入入口（阶段 0：仅 logcat 验证注入成功）
-- 初始化 Gradle Wrapper / GitHub Actions CI
-- README 中英文双语 + 安装 & 配置说明
+- 项目骨架：libxposed API 102 + Kotlin 2.4.10 + AGP 9.3.0 + miuix-kmp
+- `PillHookEntry` SystemUI 注入入口（阶段 1：完整探测 8 个目标类 + 构造方法 + 字段 + Compose 可用性检查）
+- `App` / `ConfigService` 跨进程 RemotePreferences 基础设施（基于 libxposed-service）
+- `MainActivity` miuix-kmp Compose 配置 UI（主开关）
 - 可行性评估文档 `docs/MEDIAPILL_FEASIBILITY.md`
-- 应用图标（自适应图标 + Android 13+ monochrome）
+- 应用图标（自适应图标 + monochrome）

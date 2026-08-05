@@ -1,5 +1,3 @@
-import java.net.URI
-
 plugins {
     alias(libs.plugins.agpApp) apply false
     alias(libs.plugins.composeCompiler) apply false

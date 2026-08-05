@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.clydeenke.mediapill"
     compileSdk = 37
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "com.clydeenke.mediapill"
@@ -19,7 +20,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles("proguard-rules.pro")
             signingConfig = signingConfigs["debug"]
         }
         debug {
@@ -28,9 +29,7 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
         compose = true
-        buildConfig = true
     }
 
     compileOptions {
@@ -41,7 +40,7 @@ android {
     packaging {
         resources {
             merges += "META-INF/xposed/*"
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "**"
         }
     }
 
@@ -54,11 +53,9 @@ android {
 dependencies {
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
-    implementation(libs.appcompat)
-    implementation(libs.preference)
-    implementation(libs.activity.compose)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.preference)
     implementation(libs.miuix.icons)
-    implementation(libs.miuix.core)
 }
