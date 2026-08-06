@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.os.BatteryManager
@@ -139,6 +141,11 @@ class PillOverlayController(private val context: Context) {
 
         rootView.addView(pillView, lp)
         injected = true
+
+        // 等待视图附加到窗口后应用系统模糊
+        pillView?.post {
+            pillView?.applySystemBlur()
+        }
 
         // 初始位置
         updatePillPosition(animate = false)
@@ -347,6 +354,13 @@ class PillOverlayController(private val context: Context) {
     fun isInjected(): Boolean = injected
     fun hasMediaDataManager(): Boolean = mediaDataManager != null
     fun isOnKeyguard(): Boolean = isOnKeyguard
+
+    /**
+     * 壁纸变化时刷新模糊效果
+     */
+    fun refreshBlur() {
+        pillView?.refreshBlur()
+    }
 
     // ═══════════════════════════════════════════════════════
     //  MediaDataManager

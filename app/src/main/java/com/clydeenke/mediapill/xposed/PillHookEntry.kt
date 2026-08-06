@@ -86,6 +86,7 @@ class PillHookEntry : XposedModule() {
         try { hookNotificationPanelViewController(cl) } catch (e: Exception) { Log.e(TAG, "hookNotificationPanelViewController failed", e) }
         try { hookScreenState(cl) } catch (e: Exception) { Log.e(TAG, "hookScreenState failed", e) }
         try { hookKeyguardUpdateMonitor(cl) } catch (e: Exception) { Log.e(TAG, "hookKeyguardUpdateMonitor failed", e) }
+        try { hookWallpaperChange(cl) } catch (e: Exception) { Log.e(TAG, "hookWallpaperChange failed", e) }
         // hookMediaDataManager 已移除：MediaDataManager 无声明构造函数，会抛 ArrayIndexOutOfBoundsException。
         // MediaDataManager 通过 MediaHierarchyManager 构造函数参数捕获。
     }
@@ -651,6 +652,43 @@ class PillHookEntry : XposedModule() {
 
             } catch (_: ClassNotFoundException) { }
         }
+    }
+
+    // ──────────────────────────────────────────────────
+    //  壁纸变化监听
+    // ──────────────────────────────────────────────────
+
+    private fun hookWallpaperChange(cl: ClassLoader) {
+        // 监听 KeyguardUpdateMonitor 的壁纸变化回调
+        val classNames = listOf(
+            "com.android.keyguard.KeyguardUpdateMonitor",
+            "com.android.systemui.statusbar.phone.KeyguardUpdateMonitor"
+        )
+
+        for (className in classNames) {
+            try {
+                val clazz = Class.forName(className, false, cl)
+
+                // Hook onWallpaperChanged
+                try {
+                    hook(clazz.getDeclaredMethod("onWallpaperChanged")).intercept(object : Hooker {
+                        override fun intercept(chain: Chain): Any? {
+                            val result = chain.proceed()
+                            Log.i(TAG, "Wallpaper changed, refreshing blur")
+                            mainHandler.postDelayed({
+                                overlayController?.refreshBlur()
+                            }, 500) // 延迟 500ms 确保壁纸已应用
+                            return result
+                        }
+                    })
+                    Log.i(TAG, "Hooked $className.onWallpaperChanged ✓")
+                } catch (_: NoSuchMethodException) { }
+
+                return
+            } catch (_: ClassNotFoundException) { }
+        }
+
+        Log.w(TAG, "KeyguardUpdateMonitor not found, wallpaper change detection disabled")
     }
 
     // ──────────────────────────────────────────────────
