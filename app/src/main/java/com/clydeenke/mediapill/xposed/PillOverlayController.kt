@@ -54,6 +54,11 @@ class PillOverlayController(private val context: Context) {
     private var isQsExpanded = false         // QS 展开
     private var isControlCenterOpen = false  // 控制中心打开
     private var isBouncerShowing = false     // 密码输入界面显示
+    private var isLauncherVisible = false    // 桌面是否可见
+
+    // 显示模式配置
+    private var showOnKeyguard = true        // 在锁屏显示
+    private var showOnLauncher = false       // 在桌面显示（默认关闭）
 
     // 位置状态
     private var isCharging = false
@@ -334,9 +339,34 @@ class PillOverlayController(private val context: Context) {
         return pillCurrentY + dp(50)  // 往下 50dp
     }
 
+    /**
+     * 桌面可见性变化（从 Launcher 状态监听）
+     */
+    fun onLauncherVisibilityChanged(visible: Boolean) {
+        if (isLauncherVisible == visible) return
+        isLauncherVisible = visible
+        Log.d(TAG, "Launcher visible: $visible")
+        updateVisibility()
+    }
+
+    /**
+     * 设置显示模式
+     */
+    fun setDisplayMode(showOnKeyguard: Boolean, showOnLauncher: Boolean) {
+        this.showOnKeyguard = showOnKeyguard
+        this.showOnLauncher = showOnLauncher
+        Log.i(TAG, "Display mode: keyguard=$showOnKeyguard launcher=$showOnLauncher")
+        updateVisibility()
+    }
+
     private fun updateVisibility() {
-        val shouldShow = isOnKeyguard &&
-                         !isDozing &&
+        // 检查当前位置是否应该显示
+        val shouldShowOnKeyguard = showOnKeyguard && isOnKeyguard && !isDozing
+        val shouldShowOnLauncher = showOnLauncher && isLauncherVisible && !isOnKeyguard
+        val locationValid = shouldShowOnKeyguard || shouldShowOnLauncher
+
+        // 检查其他条件
+        val shouldShow = locationValid &&
                          hasMedia &&
                          HookPrefReader.masterEnabled &&
                          !isShadeExpanded &&
@@ -344,8 +374,9 @@ class PillOverlayController(private val context: Context) {
                          !isControlCenterOpen &&
                          !isBouncerShowing
 
-        Log.d(TAG, "Visibility: shouldShow=$shouldShow (kg=$isOnKeyguard doze=$isDozing " +
-                "media=$hasMedia shade=$isShadeExpanded qs=$isQsExpanded cc=$isControlCenterOpen bouncer=$isBouncerShowing)")
+        Log.d(TAG, "Visibility: shouldShow=$shouldShow (kg=$isOnKeyguard launcher=$isLauncherVisible " +
+                "doze=$isDozing media=$hasMedia shade=$isShadeExpanded qs=$isQsExpanded " +
+                "cc=$isControlCenterOpen bouncer=$isBouncerShowing)")
 
         if (shouldShow) {
             pillView?.showPill()

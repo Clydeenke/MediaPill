@@ -447,8 +447,16 @@ class PillHookEntry : XposedModule() {
         Log.i(TAG, "StatusBarState: $state")
         val oc = ensureOverlayController() ?: return
         when (state) {
-            STATE_KEYGUARD, STATE_SHADE_LOCKED -> oc.onKeyguardStateChanged(true)
-            STATE_SHADE -> oc.onKeyguardStateChanged(false)
+            STATE_KEYGUARD, STATE_SHADE_LOCKED -> {
+                oc.onKeyguardStateChanged(true)
+                oc.onLauncherVisibilityChanged(false) // 锁屏时桌面不可见
+            }
+            STATE_SHADE -> {
+                oc.onKeyguardStateChanged(false)
+                // 解锁后，桌面可能可见（如果没有打开应用）
+                // 这里需要额外的逻辑来判断桌面是否真正可见
+                oc.onLauncherVisibilityChanged(true) // 暂时假设桌面可见
+            }
         }
     }
 
