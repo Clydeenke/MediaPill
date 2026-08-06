@@ -128,6 +128,9 @@ class PillOverlayController(private val context: Context) {
         pillView = MediaPillView(context).apply {
             setWidthLimits(pillMinWidthDp, pillMaxWidthDp)
             onPlayPauseToggle = { togglePlayPause() }
+            onPreviousClicked = { skipToPrevious() }
+            onNextClicked = { skipToNext() }
+            onArtworkClick = { openMediaApp() }
         }
 
         // 布局参数：居中底部，自适应宽度
@@ -531,6 +534,44 @@ class PillOverlayController(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "togglePlayPause failed", e)
+        }
+    }
+
+    private fun skipToPrevious() {
+        try {
+            val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            val pkg = currentPackageName ?: return
+            val controller = msm.getActiveSessions(null).firstOrNull { it.packageName == pkg }
+            controller?.transportControls?.skipToPrevious()
+            Log.d(TAG, "Skip to previous")
+        } catch (e: Exception) {
+            Log.e(TAG, "skipToPrevious failed", e)
+        }
+    }
+
+    private fun skipToNext() {
+        try {
+            val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            val pkg = currentPackageName ?: return
+            val controller = msm.getActiveSessions(null).firstOrNull { it.packageName == pkg }
+            controller?.transportControls?.skipToNext()
+            Log.d(TAG, "Skip to next")
+        } catch (e: Exception) {
+            Log.e(TAG, "skipToNext failed", e)
+        }
+    }
+
+    private fun openMediaApp() {
+        try {
+            val pkg = currentPackageName ?: return
+            val intent = context.packageManager.getLaunchIntentForPackage(pkg)
+            intent?.let {
+                it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(it)
+                Log.d(TAG, "Open media app: $pkg")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "openMediaApp failed", e)
         }
     }
 }

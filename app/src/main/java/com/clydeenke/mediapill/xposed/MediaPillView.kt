@@ -48,7 +48,10 @@ class MediaPillView(context: Context) : FrameLayout(context) {
     // 内容层
     private val artworkView: ImageView
     private val titleView: TextView
+    private val artistView: TextView
     private val playPauseBtn: ImageView
+    private val prevBtn: ImageView
+    private val nextBtn: ImageView
     private val contentLayout: LinearLayout
 
     // 状态
@@ -60,6 +63,14 @@ class MediaPillView(context: Context) : FrameLayout(context) {
     // 图标
     private var playIcon: Drawable? = null
     private var pauseIcon: Drawable? = null
+    private var prevIcon: Drawable? = null
+    private var nextIcon: Drawable? = null
+
+    // 回调
+    var onPlayPauseToggle: (() -> Unit)? = null
+    var onPreviousClicked: (() -> Unit)? = null
+    var onNextClicked: (() -> Unit)? = null
+    var onArtworkClick: (() -> Unit)? = null
 
     init {
         isClickable = false
@@ -85,7 +96,7 @@ class MediaPillView(context: Context) : FrameLayout(context) {
             setPadding(dp(8f), dp(6f), dp(8f), dp(6f))
         }
 
-        // 封面
+        // 封面（可点击展开详情）
         artworkView = ImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = LinearLayout.LayoutParams(artworkSize, artworkSize).apply {
@@ -98,8 +109,21 @@ class MediaPillView(context: Context) : FrameLayout(context) {
                 }
             }
             setBackgroundColor(Color.argb(30, 255, 255, 255))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { 
+                animateClickFeedback(this)
+                onArtworkClick?.invoke() 
+            }
         }
         contentLayout.addView(artworkView)
+
+        // 文字区域（歌名 + 歌手）
+        val textLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(dp(130f), LayoutParams.WRAP_CONTENT)
+        }
 
         // 歌名
         titleView = TextView(context).apply {
@@ -113,13 +137,46 @@ class MediaPillView(context: Context) : FrameLayout(context) {
             setSingleLine(true)
             setHorizontalFadingEdgeEnabled(true)
             setFadingEdgeLength(dp(16f))
-            layoutParams = LinearLayout.LayoutParams(dp(130f), LayoutParams.WRAP_CONTENT)
         }
-        contentLayout.addView(titleView)
+        textLayout.addView(titleView)
 
-        // 播放按钮
+        // 歌手名（新增）
+        artistView = TextView(context).apply {
+            setTextColor(Color.argb(180, 255, 255, 255))
+            textSize = 12f
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            visibility = View.GONE // 默认隐藏，需要时显示
+        }
+        textLayout.addView(artistView)
+        contentLayout.addView(textLayout)
+
+        // 控制按钮组
+        val controlsLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+        }
+
+        // 上一首按钮
+        prevBtn = createControlButton("ic_skip_prev_24") {
+            animateClickFeedback(it)
+            onPreviousClicked?.invoke()
+        }
+        controlsLayout.addView(prevBtn)
+
+        // 播放/暂停按钮
         playPauseBtn = createPlayButton()
-        contentLayout.addView(playPauseBtn)
+        controlsLayout.addView(playPauseBtn)
+
+        // 下一首按钮
+        nextBtn = createControlButton("ic_skip_next_24") {
+            animateClickFeedback(it)
+            onNextClicked?.invoke()
+        }
+        controlsLayout.addView(nextBtn)
+
+        contentLayout.addView(controlsLayout)
 
         addView(contentLayout, FrameLayout.LayoutParams(
             LayoutParams.MATCH_PARENT,
@@ -138,6 +195,8 @@ class MediaPillView(context: Context) : FrameLayout(context) {
         // 加载图标
         playIcon = ModuleResources.getDrawable("ic_play_24")
         pauseIcon = ModuleResources.getDrawable("ic_pause_24")
+        prevIcon = ModuleResources.getDrawable("ic_skip_prev_24")
+        nextIcon = ModuleResources.getDrawable("ic_skip_next_24")
 
         // 初始状态
         visibility = View.GONE
@@ -248,12 +307,25 @@ class MediaPillView(context: Context) : FrameLayout(context) {
     }
 
     private fun createPlayButton(): ImageView {
+        return createControlButton("ic_play_24") { view ->
+            onPlayPauseToggle?.invoke()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(playBtnSize, playBtnSize)
+        }
+    }
+
+    /**
+     * 创建控制按钮（上一首/下一首）
+     */
+    private fun createControlButton(iconName: String, onClick: (View) -> Unit): ImageView {
+        val btnSize = dp(36f)
         return ImageView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(playBtnSize, playBtnSize).apply {
-                marginStart = dp(8f)
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+                marginStart = dp(4f)
+                marginEnd = dp(4f)
             }
 
-            val rippleColor = Color.argb(60, 255, 255, 255)
+            val rippleColor = Color.argb(40, 255, 255, 255)
             val mask = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
                 setColor(Color.WHITE)
@@ -267,11 +339,33 @@ class MediaPillView(context: Context) : FrameLayout(context) {
             clipToOutline = true
             outlineProvider = ViewOutlineProvider.BACKGROUND
             scaleType = ImageView.ScaleType.CENTER
-            setImageDrawable(playIcon ?: createFallbackIcon(false))
+            setImageDrawable(ModuleResources.getDrawable(iconName) ?: createFallbackIcon(false))
             isClickable = true
             isFocusable = true
-            setOnClickListener { onPlayPauseToggle?.invoke() }
+            setOnClickListener { 
+                animateClickFeedback(this)
+                onClick(this)
+            }
         }
+    }
+
+    /**
+     * 点击反馈动画（缩放效果）
+     */
+    private fun animateClickFeedback(view: View) {
+        view.animate()
+            .scaleX(0.85f)
+            .scaleY(0.85f)
+            .setDuration(100)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(150)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
+                    .start()
+            }
+            .start()
     }
 
     // ═══════════════════════════════════════════════════════
@@ -421,14 +515,21 @@ class MediaPillView(context: Context) : FrameLayout(context) {
     //  数据更新
     // ═══════════════════════════════════════════════════════
 
-    var onPlayPauseToggle: (() -> Unit)? = null
-    var onNextClicked: (() -> Unit)? = null
-
     fun updateMedia(title: CharSequence, artist: CharSequence, artwork: Bitmap?, playing: Boolean) {
         isPlaying = playing
-        val displayText = if (title.isNotEmpty()) title else artist
-        titleView.text = displayText
+        
+        // 更新歌名
+        titleView.text = title
+        
+        // 更新歌手名（如果有）
+        if (artist.isNotEmpty()) {
+            artistView.text = artist
+            artistView.visibility = View.VISIBLE
+        } else {
+            artistView.visibility = View.GONE
+        }
 
+        // 更新封面
         if (artwork != null) {
             artworkView.setImageBitmap(artwork)
             artworkView.setBackgroundColor(Color.TRANSPARENT)
@@ -438,6 +539,7 @@ class MediaPillView(context: Context) : FrameLayout(context) {
             artworkView.setBackgroundColor(Color.argb(30, 255, 255, 255))
         }
 
+        // 更新播放按钮图标
         val icon = if (playing) pauseIcon else playIcon
         playPauseBtn.setImageDrawable(icon ?: createFallbackIcon(playing))
 
