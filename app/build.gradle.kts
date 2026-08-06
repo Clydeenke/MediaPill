@@ -51,6 +51,7 @@ android {
 
 dependencies {
     compileOnly(libs.libxposed.api)
+    compileOnly(libs.androidx.dynamicanimation)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.miuix.ui)
